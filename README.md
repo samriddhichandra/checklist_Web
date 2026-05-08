@@ -82,6 +82,3 @@ npm run build
 npm start
 ```
 
-## License
-
-Private / internal project (update if you intend to open source).
