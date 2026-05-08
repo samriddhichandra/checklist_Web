@@ -342,11 +342,27 @@ export default function ChecklistApp() {
   const [activeSection, setActiveSection] = useState(SECTIONS[0]?.id ?? "sec1");
   const [flashSectionId, setFlashSectionId] = useState("");
   const [toast, setToast] = useState("");
+  const [isMobileUi, setIsMobileUi] = useState(false);
+  const [isActionsCollapsed, setIsActionsCollapsed] = useState(false);
   const activeSectionRef = useRef(activeSection);
 
   useEffect(() => {
     activeSectionRef.current = activeSection;
   }, [activeSection]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 600px)");
+    const apply = () => {
+      const mobile = mq.matches;
+      setIsMobileUi(mobile);
+      // Keep actions always visible on desktop.
+      if (!mobile) setIsActionsCollapsed(false);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const [answers, setAnswers] = useState(() => {
     const base = {};
@@ -661,15 +677,38 @@ export default function ChecklistApp() {
         </main>
       </div>
 
-      <div className="submit-bar" role="region" aria-label="Actions">
-        <div className="submit-stats">
-          <strong>{answeredCount}</strong> of <strong>{TOTAL_QUESTIONS}</strong> questions answered &nbsp;·&nbsp;{" "}
-          <span>{pct}% complete</span>
-          <span className="submit-required">
-            &nbsp;·&nbsp; Required: {requiredStats.requiredAnswered}/{requiredStats.requiredTotal}
-          </span>
+      <div
+        className={`submit-bar ${isMobileUi && isActionsCollapsed ? "compact" : ""}`}
+        role="region"
+        aria-label="Actions"
+      >
+        <div className="submit-top">
+          <div className="submit-stats">
+            <strong>{answeredCount}</strong> of <strong>{TOTAL_QUESTIONS}</strong> answered &nbsp;·&nbsp;{" "}
+            <span>{pct}%</span>
+            <span className="submit-required">
+              &nbsp;·&nbsp; Required: {requiredStats.requiredAnswered}/{requiredStats.requiredTotal}
+            </span>
+          </div>
+          {isMobileUi ? (
+            <button
+              className="submit-toggle"
+              type="button"
+              aria-expanded={!isActionsCollapsed}
+              aria-controls="submit-actions"
+              onClick={() => setIsActionsCollapsed((v) => !v)}
+              title={isActionsCollapsed ? "Open actions" : "Collapse actions"}
+            >
+              {isActionsCollapsed ? "↑" : "×"}
+            </button>
+          ) : null}
         </div>
-        <div className="submit-actions">
+
+        <div
+          id="submit-actions"
+          className="submit-actions"
+          hidden={isMobileUi && isActionsCollapsed}
+        >
           <button className="btn-reset" type="button" onClick={resetAll}>
             Reset
           </button>
