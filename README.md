@@ -1,4 +1,4 @@
-# Trial SOP Checklist (RailwayMitra - POC2)
+# Trial SOP Checklist 
 
 A guided, sectioned checklist web app with autosave and exports (JSON + CSV) for post‑trial reporting.
 
@@ -82,6 +82,3 @@ npm run build
 npm start
 ```
 
-## License
-
-Private / internal project (update if you intend to open source).
