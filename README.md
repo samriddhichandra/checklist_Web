@@ -1,4 +1,4 @@
-# Trial SOP Checklist (RailwayMitra - POC2)
+# Trial SOP Checklist 
 
 A guided, sectioned checklist web app with autosave and exports (JSON + CSV) for post‑trial reporting.
 
