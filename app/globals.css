@@ -120,7 +120,17 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 700;
+  font-weight: 800;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--accent);
+}
+.header-trial:hover {
+  background: rgba(244, 196, 48, 0.12);
+  border-color: rgba(18, 58, 86, 0.12);
 }
 .header-saved {
   color: var(--text-light);

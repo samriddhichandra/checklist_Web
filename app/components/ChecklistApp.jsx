@@ -385,6 +385,7 @@ export default function ChecklistApp() {
   const [toast, setToast] = useState("");
   const [trialId, setTrialId] = useState("");
   const [trialTitle, setTrialTitle] = useState("Untitled trial");
+  const [trialTitleOverride, setTrialTitleOverride] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [isTrialSwitcherOpen, setIsTrialSwitcherOpen] = useState(false);
   const [trials, setTrials] = useState([]);
@@ -454,11 +455,14 @@ export default function ChecklistApp() {
       if (loaded && typeof loaded === "object" && loaded.answers) {
         setAnswers({ ...makeBaseAnswers(), ...loaded.answers });
         setLastSavedAt(loaded.updatedAt ?? "");
-        setTrialTitle(deriveTrialTitle(loaded.answers));
+        const override = safeShort(loaded.titleOverride);
+        setTrialTitleOverride(override);
+        setTrialTitle(override || deriveTrialTitle(loaded.answers));
       } else {
         const base = makeBaseAnswers();
         setAnswers(base);
         setLastSavedAt("");
+        setTrialTitleOverride("");
         setTrialTitle(deriveTrialTitle(base));
       }
       window.requestAnimationFrame(() => {
@@ -472,14 +476,19 @@ export default function ChecklistApp() {
     if (!trialId) return;
     if (suppressAutosaveRef.current) return;
     const updatedAt = new Date().toISOString();
-    const title = deriveTrialTitle(answers);
+    const derived = deriveTrialTitle(answers);
+    const title = safeShort(trialTitleOverride) || derived;
     setTrialTitle(title);
     setLastSavedAt(updatedAt);
-    saveTrial(trialId, { answers, updatedAt }, { title, updatedAt });
+    saveTrial(
+      trialId,
+      { answers, updatedAt, titleOverride: safeShort(trialTitleOverride) },
+      { title, updatedAt },
+    );
 
     // Keep legacy storage updated for backwards compatibility (single-trial consumers).
     saveChecklist({ answers, updatedAt, trialId });
-  }, [answers, trialId]);
+  }, [answers, trialId, trialTitleOverride]);
 
   useEffect(() => {
     let raf = 0;
@@ -662,6 +671,7 @@ export default function ChecklistApp() {
     const base = makeBaseAnswers();
     setAnswers(base);
     setTrialTitle("Untitled trial");
+    setTrialTitleOverride("");
     setLastSavedAt("");
     setTrials(listTrials());
     window.requestAnimationFrame(() => {
@@ -683,11 +693,14 @@ export default function ChecklistApp() {
     if (loaded && typeof loaded === "object" && loaded.answers) {
       setAnswers({ ...makeBaseAnswers(), ...loaded.answers });
       setLastSavedAt(loaded.updatedAt ?? "");
-      setTrialTitle(deriveTrialTitle(loaded.answers));
+      const override = safeShort(loaded.titleOverride);
+      setTrialTitleOverride(override);
+      setTrialTitle(override || deriveTrialTitle(loaded.answers));
     } else {
       const base = makeBaseAnswers();
       setAnswers(base);
       setLastSavedAt("");
+      setTrialTitleOverride("");
       setTrialTitle(deriveTrialTitle(base));
     }
     setTrials(listTrials());
@@ -727,6 +740,28 @@ export default function ChecklistApp() {
     } else {
       setToast(text);
     }
+  }
+
+  function renameTrial(nextTitle) {
+    if (!trialId) return;
+    const cleaned = safeShort(nextTitle);
+    suppressAutosaveRef.current = true;
+    setTrialTitleOverride(cleaned);
+    const derived = deriveTrialTitle(answers);
+    const finalTitle = cleaned || derived;
+    setTrialTitle(finalTitle);
+    const updatedAt = new Date().toISOString();
+    setLastSavedAt(updatedAt);
+    saveTrial(
+      trialId,
+      { answers, updatedAt, titleOverride: cleaned },
+      { title: finalTitle, updatedAt },
+    );
+    setTrials(listTrials());
+    window.requestAnimationFrame(() => {
+      suppressAutosaveRef.current = false;
+    });
+    setToast(cleaned ? "Trial renamed" : "Trial name reset to automatic");
   }
 
   function submit() {
@@ -797,9 +832,21 @@ export default function ChecklistApp() {
           Trial Checklist <span className="header-badge">RailwayMitra POC2</span>
         </div>
         <div className="header-right">
-          <span className="header-trial" title={trialTitle}>
+          <button
+            className="header-trial"
+            type="button"
+            title="Rename trial"
+            onClick={() => {
+              const next = window.prompt(
+                "Trial name (leave empty to use automatic name from Trial Info):",
+                trialTitleOverride || trialTitle,
+              );
+              if (next == null) return;
+              renameTrial(next);
+            }}
+          >
             {trialTitle}
-          </span>
+          </button>
           <span className="header-saved" title={lastSavedAt ? `Saved at ${lastSavedAt}` : ""}>
             {lastSavedAt ? `Saved ${formatIso(lastSavedAt)}` : "Not saved yet"}
           </span>
@@ -857,6 +904,32 @@ export default function ChecklistApp() {
                     <div className="trial-item-actions">
                       <button className="trial-open" type="button" onClick={() => switchTrial(t.trialId)}>
                         Open
+                      </button>
+                      <button
+                        className="trial-open"
+                        type="button"
+                        onClick={() => {
+                          const next = window.prompt("Trial name:", t.title ?? "");
+                          if (next == null) return;
+                          if (t.trialId === trialId) renameTrial(next);
+                          else {
+                            const loaded = loadTrial(t.trialId);
+                            const answersForTitle = loaded?.answers ?? {};
+                            const cleaned = safeShort(next);
+                            const derived = deriveTrialTitle(answersForTitle);
+                            const finalTitle = cleaned || derived;
+                            const updatedAt = new Date().toISOString();
+                            saveTrial(
+                              t.trialId,
+                              { ...(loaded ?? { answers: makeBaseAnswers() }), updatedAt, titleOverride: cleaned },
+                              { title: finalTitle, updatedAt },
+                            );
+                            setTrials(listTrials());
+                            setToast(cleaned ? "Trial renamed" : "Trial name reset to automatic");
+                          }
+                        }}
+                      >
+                        Rename
                       </button>
                       <button className="trial-copy" type="button" onClick={() => copyResumeLink(t.trialId)}>
                         Link
