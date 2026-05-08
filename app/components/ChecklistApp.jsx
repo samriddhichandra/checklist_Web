@@ -884,7 +884,7 @@ export default function ChecklistApp() {
               </button>
               {trialId ? (
                 <button className="trial-link" type="button" onClick={() => copyResumeLink(trialId)}>
-                  Copy resume link
+                  Copy current link
                 </button>
               ) : null}
             </div>
