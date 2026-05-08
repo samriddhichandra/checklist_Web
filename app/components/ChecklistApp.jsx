@@ -2,10 +2,51 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SECTIONS, TOTAL_QUESTIONS } from "../../lib/checklistData";
-import { clearChecklist, loadChecklist, saveChecklist } from "../../lib/checklistStorage";
+import {
+  deleteTrial,
+  ensureActiveTrialId,
+  getActiveTrialId,
+  listTrials,
+  loadChecklist,
+  loadTrial,
+  saveChecklist,
+  saveTrial,
+  setActiveTrialId,
+} from "../../lib/checklistStorage";
 
 function utcISODate(d = new Date()) {
   return d.toISOString().slice(0, 10);
+}
+
+function safeShort(s) {
+  return typeof s === "string" ? s.trim() : "";
+}
+
+function deriveTrialTitle(answers) {
+  const blockNo = safeShort(answers?.[15]);
+  const blockDate = safeShort(answers?.[16]);
+  const location = safeShort(answers?.[17]);
+  const parts = [blockNo && `PTW ${blockNo}`, blockDate, location].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Untitled trial";
+}
+
+function makeBaseAnswers() {
+  const base = {};
+  SECTIONS.flatMap((s) => s.questions).forEach((q) => {
+    if (base[q.num] !== undefined) return;
+    if (q.type === "checklist") base[q.num] = { selected: {}, otherText: "" };
+    else if (q.type === "yesNoOther") base[q.num] = { choice: "", otherText: "" };
+    else if (q.type === "yesOther") base[q.num] = { choice: "", otherText: "" };
+    else base[q.num] = "";
+  });
+  return base;
+}
+
+function formatIso(iso) {
+  if (!iso || typeof iso !== "string") return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function downloadJson(filename, obj) {
@@ -342,9 +383,15 @@ export default function ChecklistApp() {
   const [activeSection, setActiveSection] = useState(SECTIONS[0]?.id ?? "sec1");
   const [flashSectionId, setFlashSectionId] = useState("");
   const [toast, setToast] = useState("");
+  const [trialId, setTrialId] = useState("");
+  const [trialTitle, setTrialTitle] = useState("Untitled trial");
+  const [lastSavedAt, setLastSavedAt] = useState("");
+  const [isTrialSwitcherOpen, setIsTrialSwitcherOpen] = useState(false);
+  const [trials, setTrials] = useState([]);
   const [isMobileUi, setIsMobileUi] = useState(false);
   const [isActionsCollapsed, setIsActionsCollapsed] = useState(false);
   const activeSectionRef = useRef(activeSection);
+  const suppressAutosaveRef = useRef(false);
 
   useEffect(() => {
     activeSectionRef.current = activeSection;
@@ -364,24 +411,75 @@ export default function ChecklistApp() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const [answers, setAnswers] = useState(() => {
-    const base = {};
+  const [answers, setAnswers] = useState(() => makeBaseAnswers());
 
-    SECTIONS.flatMap((s) => s.questions).forEach((q) => {
-      if (base[q.num] !== undefined) return;
-      if (q.type === "checklist") base[q.num] = { selected: {}, otherText: "" };
-      else if (q.type === "yesNoOther") base[q.num] = { choice: "", otherText: "" };
-      else if (q.type === "yesOther") base[q.num] = { choice: "", otherText: "" };
-      else base[q.num] = "";
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    window.requestAnimationFrame(() => {
+      const params = new URLSearchParams(window.location.search ?? "");
+      const requestedId = params.get("trialId") ?? "";
+
+      const existingTrials = listTrials();
+      setTrials(existingTrials);
+
+      const existingActive = getActiveTrialId();
+      let id = requestedId || existingActive;
+      if (!id && existingTrials[0]?.trialId) id = existingTrials[0].trialId;
+      if (!id) id = ensureActiveTrialId();
+
+      // One-time migration: if legacy storage exists, import it as a trial (only if no trials exist yet).
+      if (!existingTrials.length) {
+        const legacy = loadChecklist();
+        if (legacy && typeof legacy === "object" && legacy.answers) {
+          const migratedId = id || ensureActiveTrialId();
+          saveTrial(
+            migratedId,
+            { ...legacy, migratedFromLegacy: true },
+            {
+              title: deriveTrialTitle(legacy.answers) || "Migrated trial",
+              createdAt: legacy.createdAt,
+              updatedAt: legacy.updatedAt,
+            },
+          );
+          setTrials(listTrials());
+        }
+      }
+
+      // Load the requested/active trial (or start empty if it doesn't exist yet).
+      const loaded = loadTrial(id);
+      suppressAutosaveRef.current = true;
+      setTrialId(id);
+      setActiveTrialId(id);
+      if (loaded && typeof loaded === "object" && loaded.answers) {
+        setAnswers({ ...makeBaseAnswers(), ...loaded.answers });
+        setLastSavedAt(loaded.updatedAt ?? "");
+        setTrialTitle(deriveTrialTitle(loaded.answers));
+      } else {
+        const base = makeBaseAnswers();
+        setAnswers(base);
+        setLastSavedAt("");
+        setTrialTitle(deriveTrialTitle(base));
+      }
+      window.requestAnimationFrame(() => {
+        suppressAutosaveRef.current = false;
+      });
     });
-
-    return base;
-  });
+  }, []);
 
   // Persist (debounced-ish)
   useEffect(() => {
-    saveChecklist({ answers, updatedAt: new Date().toISOString() });
-  }, [answers]);
+    if (!trialId) return;
+    if (suppressAutosaveRef.current) return;
+    const updatedAt = new Date().toISOString();
+    const title = deriveTrialTitle(answers);
+    setTrialTitle(title);
+    setLastSavedAt(updatedAt);
+    saveTrial(trialId, { answers, updatedAt }, { title, updatedAt });
+
+    // Keep legacy storage updated for backwards compatibility (single-trial consumers).
+    saveChecklist({ answers, updatedAt, trialId });
+  }, [answers, trialId]);
 
   useEffect(() => {
     let raf = 0;
@@ -538,7 +636,7 @@ export default function ChecklistApp() {
   }
 
   function resetAll() {
-    clearChecklist();
+    // Reset just the current trial contents (keeps the trialId stable).
     setAnswers((prev) => {
       const next = { ...prev };
       for (const s of SECTIONS) {
@@ -554,6 +652,81 @@ export default function ChecklistApp() {
       return next;
     });
     setToast("Form reset successfully");
+  }
+
+  function startNewTrial() {
+    const fresh = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    setActiveTrialId(fresh);
+    setTrialId(fresh);
+    suppressAutosaveRef.current = true;
+    const base = makeBaseAnswers();
+    setAnswers(base);
+    setTrialTitle("Untitled trial");
+    setLastSavedAt("");
+    setTrials(listTrials());
+    window.requestAnimationFrame(() => {
+      suppressAutosaveRef.current = false;
+    });
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("trialId", fresh);
+      window.history.replaceState(null, "", url.toString());
+    }
+  }
+
+  function switchTrial(nextTrialId) {
+    if (!nextTrialId || nextTrialId === trialId) return;
+    const loaded = loadTrial(nextTrialId);
+    suppressAutosaveRef.current = true;
+    setTrialId(nextTrialId);
+    setActiveTrialId(nextTrialId);
+    if (loaded && typeof loaded === "object" && loaded.answers) {
+      setAnswers({ ...makeBaseAnswers(), ...loaded.answers });
+      setLastSavedAt(loaded.updatedAt ?? "");
+      setTrialTitle(deriveTrialTitle(loaded.answers));
+    } else {
+      const base = makeBaseAnswers();
+      setAnswers(base);
+      setLastSavedAt("");
+      setTrialTitle(deriveTrialTitle(base));
+    }
+    setTrials(listTrials());
+    window.requestAnimationFrame(() => {
+      suppressAutosaveRef.current = false;
+    });
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("trialId", nextTrialId);
+      window.history.replaceState(null, "", url.toString());
+    }
+  }
+
+  function removeTrial(id) {
+    if (!id) return;
+    const ok = window.confirm("Delete this trial from this device? This cannot be undone.");
+    if (!ok) return;
+    deleteTrial(id);
+    const remaining = listTrials();
+    setTrials(remaining);
+    if (trialId === id) {
+      const fallback = remaining[0]?.trialId || ensureActiveTrialId();
+      switchTrial(fallback);
+    }
+  }
+
+  function copyResumeLink(id) {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("trialId", id);
+    const text = url.toString();
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => setToast("Resume link copied"))
+        .catch(() => setToast("Could not copy link"));
+    } else {
+      setToast(text);
+    }
   }
 
   function submit() {
@@ -624,12 +797,82 @@ export default function ChecklistApp() {
           Trial Checklist <span className="header-badge">RailwayMitra POC2</span>
         </div>
         <div className="header-right">
-          <span>
+          <span className="header-trial" title={trialTitle}>
+            {trialTitle}
+          </span>
+          <span className="header-saved" title={lastSavedAt ? `Saved at ${lastSavedAt}` : ""}>
+            {lastSavedAt ? `Saved ${formatIso(lastSavedAt)}` : "Not saved yet"}
+          </span>
+          <span className="header-answered">
             {answeredCount} / {TOTAL_QUESTIONS} answered
           </span>
           <span className="progress-pill">{pct}%</span>
+          <button className="trial-btn" type="button" onClick={() => setIsTrialSwitcherOpen(true)}>
+            Trials
+          </button>
         </div>
       </header>
+
+      {isTrialSwitcherOpen ? (
+        <div
+          className="trial-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Trials"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsTrialSwitcherOpen(false);
+          }}
+        >
+          <div className="trial-panel">
+            <div className="trial-panel-head">
+              <div className="trial-panel-title">Trials on this device</div>
+              <button className="trial-panel-close" type="button" onClick={() => setIsTrialSwitcherOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="trial-panel-actions">
+              <button className="trial-new" type="button" onClick={startNewTrial}>
+                + New trial
+              </button>
+              {trialId ? (
+                <button className="trial-link" type="button" onClick={() => copyResumeLink(trialId)}>
+                  Copy resume link
+                </button>
+              ) : null}
+            </div>
+
+            <div className="trial-list" role="list">
+              {(trials.length ? trials : listTrials()).map((t) => {
+                const active = t.trialId === trialId;
+                return (
+                  <div key={t.trialId} className={`trial-item ${active ? "active" : ""}`} role="listitem">
+                    <div className="trial-item-main">
+                      <div className="trial-item-title">{t.title ?? "Untitled trial"}</div>
+                      <div className="trial-item-sub">
+                        {t.updatedAt ? `Updated ${formatIso(t.updatedAt)}` : ""}
+                        {active ? " · Current" : ""}
+                      </div>
+                    </div>
+                    <div className="trial-item-actions">
+                      <button className="trial-open" type="button" onClick={() => switchTrial(t.trialId)}>
+                        Open
+                      </button>
+                      <button className="trial-copy" type="button" onClick={() => copyResumeLink(t.trialId)}>
+                        Link
+                      </button>
+                      <button className="trial-del" type="button" onClick={() => removeTrial(t.trialId)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {!trials.length && !listTrials().length ? <div className="trial-empty">No saved trials yet.</div> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="global-progress" aria-hidden="true" style={{ "--progress": scrollPct }}>
         <div className="global-progress-track" />

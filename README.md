@@ -1,6 +1,6 @@
-# Trial SOP Checklist 
+# Trial SOP Checklist (RailwayMitra - POC2)
 
-A guided, sectioned checklist web app with autosave and exports (JSON + CSV) for post‑trial reporting.
+Sectioned trial SOP checklist web app with **local-first autosave**, **multi-trial resume**, and **exports (JSON + CSV)**.
 
 ## Demo
 
@@ -11,12 +11,27 @@ A guided, sectioned checklist web app with autosave and exports (JSON + CSV) for
   <img src="public/demo2.png" alt="Checklist demo - form" width="900" />
 </p>
 
-## Features
+## Why This App
 
-- Sectioned checklist UI with progress + required indicators
-- Autosave to local storage (resume where you left off)
-- Export answers to `JSON` and `CSV` (Excel-friendly)
-- Mobile/desktop responsive layout
+Trial data entry is often **irregular**:
+- Section 1 can be filled in the office.
+- Later sections are filled on track at different time intervals.
+- Connectivity can be weak or intermittent.
+
+This app is built to **retain trial state safely** so the operator can continue later without losing progress.
+
+## Key Features
+
+- **Checklist flow** split into sections with progress and required indicators
+- **Autosave** (local-first) so work is not lost if the tab is closed or network drops
+- **Multiple trials** per device/browser (each trial has its own `trialId`)
+- **Resume link** support via `/form?trialId=...`
+- **Exports**
+  - `JSON` (structured payload)
+  - `CSV` (Excel-friendly)
+- **Mobile-first UX**
+  - Responsive layout
+  - Phone-only collapsible actions so the form is not covered
 
 ## Tech Stack
 
@@ -41,7 +56,38 @@ npm ci
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000`.
+
+## Usage
+
+### Start / Resume a Trial
+
+Open the form at `/form`.
+
+- Click **Trials** to:
+  - create a **New trial**
+  - open a previously saved trial on this device
+  - copy a **resume link** (`/form?trialId=...`)
+  - delete a trial (device-local)
+
+### Reset / Export
+
+- **Reset** clears the current trial’s answers (keeps the same `trialId`).
+- **Export Excel** downloads a `CSV`.
+- **Export JSON** downloads a `JSON` snapshot.
+
+## Data Persistence Model
+
+- Data is stored locally in the browser (LocalStorage).
+- Each trial is saved separately using its own `trialId`.
+- An index of recent trials is maintained to support switching/resume.
+
+### Limitations
+
+- LocalStorage is **per device + per browser profile**.
+- Clearing site data will remove saved trials.
+
+If you need cross-device resume (phone ↔ laptop), add backend sync (see “Roadmap”).
 
 ## Scripts
 
@@ -50,24 +96,18 @@ Then open `http://localhost:3000`.
 - `npm start` — run production server
 - `npm run lint` — run ESLint
 
-## App Structure
+## Project Structure
 
-- `app/page.js` — landing page (links to `/form`)
+- `app/page.js` — landing page
 - `app/form/page.js` — form route
-- `app/components/ChecklistApp.jsx` — checklist UI + autosave + export logic
-- `lib/` — checklist data + storage helpers
-
-## Configuration
-
-This project doesn’t require environment variables by default.
-
-If you add any secrets/config locally, keep them in `.env*` files (ignored by git). If you need to document required variables, add a committed `.env.example`.
+- `app/components/ChecklistApp.jsx` — checklist UI, scrollspy, autosave, trial switcher, exports
+- `lib/checklistData.js` — checklist schema
+- `lib/checklistStorage.js` — trial persistence helpers
+- `public/demo1.png`, `public/demo2.png` — README screenshots
 
 ## Deployment
 
 ### Vercel
-
-Works out of the box as a Next.js app:
 
 ```bash
 npm ci
@@ -81,4 +121,14 @@ npm ci
 npm run build
 npm start
 ```
+
+## Roadmap (Optional)
+
+- Backend sync keyed by `trialId` for cross-device resume
+- Field-level conflict handling for multi-device edits
+- IndexedDB storage (better for large payloads / attachments)
+
+## License
+
+Private / internal project (update if you intend to open source).
 
