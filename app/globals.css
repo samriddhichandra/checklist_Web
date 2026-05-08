@@ -856,6 +856,40 @@ button {
   .trial-btn {
     padding: 7px 10px;
   }
+
+  /* Trials modal on phones */
+  .trial-modal {
+    padding: 12px;
+    place-items: end center;
+  }
+  .trial-panel {
+    max-height: 84vh;
+    border-radius: 18px;
+  }
+  .trial-panel-actions {
+    flex-direction: column;
+  }
+  .trial-new,
+  .trial-link {
+    width: 100%;
+  }
+  .trial-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .trial-item-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .trial-open,
+  .trial-copy,
+  .trial-del {
+    width: 100%;
+    padding: 10px 10px;
+    border-radius: 12px;
+  }
   .global-progress {
     top: 56px;
   }
