@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trial SOP Checklist (RailwayMitra - POC2)
+
+A guided, sectioned checklist web app with autosave and exports (JSON + CSV) for post‑trial reporting.
+
+## Demo
+
+<p align="center">
+  <img src="public/demo1.png" alt="Checklist demo - landing" width="900" />
+</p>
+<p align="center">
+  <img src="public/demo2.png" alt="Checklist demo - form" width="900" />
+</p>
+
+## Features
+
+- Sectioned checklist UI with progress + required indicators
+- Autosave to local storage (resume where you left off)
+- Export answers to `JSON` and `CSV` (Excel-friendly)
+- Mobile/desktop responsive layout
+
+## Tech Stack
+
+- Next.js (App Router)
+- React
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ (recommended)
+
+### Install
+
+```bash
+npm ci
+```
+
+### Run (dev)
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` — start dev server
+- `npm run build` — production build
+- `npm start` — run production server
+- `npm run lint` — run ESLint
 
-## Learn More
+## App Structure
 
-To learn more about Next.js, take a look at the following resources:
+- `app/page.js` — landing page (links to `/form`)
+- `app/form/page.js` — form route
+- `app/components/ChecklistApp.jsx` — checklist UI + autosave + export logic
+- `lib/` — checklist data + storage helpers
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configuration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project doesn’t require environment variables by default.
 
-## Deploy on Vercel
+If you add any secrets/config locally, keep them in `.env*` files (ignored by git). If you need to document required variables, add a committed `.env.example`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Vercel
+
+Works out of the box as a Next.js app:
+
+```bash
+npm ci
+npm run build
+```
+
+### Node Server
+
+```bash
+npm ci
+npm run build
+npm start
+```
+
+## License
+
+Private / internal project (update if you intend to open source).

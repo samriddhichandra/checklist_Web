@@ -1,66 +1,56 @@
 import Image from "next/image";
-import styles from "./page.module.css";
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.js file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="landing">
+      <div className="landing-bg" aria-hidden="true" />
+      <div className="landing-grid">
+        <section className="landing-card">
+          <div className="landing-badge">Required</div>
+          <h1 className="landing-title">Trial SOP Checklist</h1>
+          <p className="landing-subtitle">RailwayMitra - POC2</p>
+          <p className="landing-desc">
+            A guided, sectioned checklist with autosave and JSON export for post-trial reporting.
           </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+          <div className="landing-actions">
+            <a className="landing-cta" href="/form">
+              Start the form
+            </a>
+          </div>
+
+        </section>
+
+        <section className="landing-collage" aria-label="Checklist preview collage">
+          <div className="collage">
+            <CollageImage className="i1" src="/Image.jpeg" alt="Rail inspection setup" priority />
+            <CollageImage
+              className="i2"
+              src="/A_yellow_industrial_rail_inspection_202605081307.jpeg"
+              alt="Yellow industrial rail inspection"
+              priority
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <CollageImage className="i3" src="/IMG_3879.jpeg" alt="Trial photo 1" />
+            <CollageImage className="i4" src="/IMG_3880.jpeg" alt="Trial photo 2" />
+            <CollageImage className="i5" src="/shared%20image.jpeg" alt="Shared trial image" />
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function CollageImage({ className, src, alt, priority = false }) {
+  return (
+    <div className={`collage-frame ${className}`}>
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        priority={priority}
+        sizes="(max-width: 900px) 92vw, 46vw"
+        style={{ objectFit: "cover" }}
+      />
     </div>
   );
 }
