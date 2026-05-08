@@ -69,6 +69,10 @@ button {
   border: 0;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 /* ---- APP SHELL ---- */
 .header {
   background: rgba(255, 255, 255, 0.92);
