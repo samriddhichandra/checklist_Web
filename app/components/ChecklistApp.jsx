@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SECTIONS, TOTAL_QUESTIONS } from "../../lib/checklistData";
 import { clearChecklist, loadChecklist, saveChecklist } from "../../lib/checklistStorage";
 
@@ -342,6 +342,11 @@ export default function ChecklistApp() {
   const [activeSection, setActiveSection] = useState(SECTIONS[0]?.id ?? "sec1");
   const [flashSectionId, setFlashSectionId] = useState("");
   const [toast, setToast] = useState("");
+  const activeSectionRef = useRef(activeSection);
+
+  useEffect(() => {
+    activeSectionRef.current = activeSection;
+  }, [activeSection]);
 
   const [answers, setAnswers] = useState(() => {
     const base = {};
@@ -365,6 +370,7 @@ export default function ChecklistApp() {
   useEffect(() => {
     let raf = 0;
     let warmup = 0;
+    let sectionEls = [];
 
     const getMetrics = () => {
       const docEl = document.documentElement;
@@ -390,6 +396,42 @@ export default function ChecklistApp() {
       return { max, y };
     };
 
+    const getHeaderOffset = () => {
+      const header = document.querySelector(".header");
+      const progress = document.querySelector(".global-progress");
+      const headerH = header instanceof HTMLElement ? header.offsetHeight : 64;
+      const progressH = progress instanceof HTMLElement ? progress.offsetHeight : 14;
+      return headerH + progressH + 12;
+    };
+
+    const ensureSectionEls = () => {
+      if (sectionEls.length) return;
+      sectionEls = SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean);
+    };
+
+    const updateActiveSectionFromScroll = () => {
+      ensureSectionEls();
+      if (!sectionEls.length) return;
+
+      const offset = getHeaderOffset();
+      let bestId = sectionEls[0]?.id ?? "";
+      let bestTop = Number.NEGATIVE_INFINITY;
+
+      for (const el of sectionEls) {
+        const top = el.getBoundingClientRect().top;
+        // Keep the active item on the section whose top has crossed the sticky header line.
+        if (top <= offset + 4 && top > bestTop) {
+          bestTop = top;
+          bestId = el.id;
+        }
+      }
+
+      if (bestId && bestId !== activeSectionRef.current) {
+        setActiveSection(bestId);
+        if (typeof window !== "undefined") window.history.replaceState(null, "", `#${bestId}`);
+      }
+    };
+
     const onScroll = () => {
       if (raf) return;
       raf = window.requestAnimationFrame(() => {
@@ -397,6 +439,7 @@ export default function ChecklistApp() {
         const { max, y } = getMetrics();
         const pctNow = max > 0 ? Math.round((y / max) * 100) : 0;
         setScrollPct(Math.max(0, Math.min(100, pctNow)));
+        updateActiveSectionFromScroll();
       });
     };
 
@@ -453,13 +496,26 @@ export default function ChecklistApp() {
     return stats;
   }, [answers]);
 
-  // Active section is controlled by sidebar selection (not by scroll).
+  // Active section follows scroll position (scrollspy).
 
   useEffect(() => {
     // Give the app a short moment to hydrate + load persisted state for a smoother first paint.
     const t = setTimeout(() => setIsLoadingUi(false), 450);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (isLoadingUi) return;
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const id = hash?.startsWith("#") ? hash.slice(1) : "";
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    window.requestAnimationFrame(() => {
+      setActiveSection(id);
+      el.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+  }, [isLoadingUi]);
 
   function setAnswer(num, next) {
     setAnswers((prev) => ({ ...prev, [num]: next }));
